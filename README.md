@@ -1,5 +1,9 @@
 Initially found this script somewhere in the internet. Patched to work with different colors for clean branch, dirty branch, staged changes.
 
+It looks like this:
+
+![gitrc](https://cloud.githubusercontent.com/assets/2694027/3011768/0abf2b16-df30-11e3-817d-b804097345b1.png)
+
 Installation:
 
 Place the **.gitrc** file to your home directory. Add the following code to your **.bashrc** file:
