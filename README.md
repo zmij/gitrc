@@ -2,7 +2,7 @@ Initially found this script somewhere in the internet. Patched to work with diff
 
 It looks like this:
 
-![gitrc](https://cloud.githubusercontent.com/assets/2694027/3011768/0abf2b16-df30-11e3-817d-b804097345b1.png)
+![gitrc](https://cloud.githubusercontent.com/assets/2694027/3026184/b0187654-e010-11e3-96e5-86a92caf4402.png)
 
 ## Installation
 
