@@ -30,6 +30,10 @@ git_prompt ()
                 if ! [ $staged -eq 0 ]; then
                         git_color="$c_git_staged";
                 else
+			update_remote=$(git config --get prompt.updateremote);
+			if ! [ -z "$update_remote" ]; then
+				git remote update -p 2>/dev/null 1>&2;
+			fi
 			pending=$(expr $(git log --oneline @{u}.. 2>/dev/null | wc -l) + $(git log --oneline ..@{u} 2>/dev/null | wc -l));
 			if ! [ $pending -eq 0 ]; then
 				git_color="$c_git_pending";
