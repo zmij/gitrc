@@ -30,8 +30,8 @@ git_prompt ()
                 if ! [ $staged -eq 0 ]; then
                         git_color="$c_git_staged";
                 else
-			outgoing=$(git log --oneline @{u}.. 2>/dev/null | wc -l);
-			if ! [ $outgoing -eq 0 ]; then
+			pending=$(expr $(git log --oneline @{u}.. 2>/dev/null | wc -l) + $(git log --oneline ..@{u} 2>/dev/null | wc -l));
+			if ! [ $pending -eq 0 ]; then
 				git_color="$c_git_pending";
 			else
                         	git_color="$c_git_clean";
