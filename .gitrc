@@ -18,6 +18,8 @@ else
         c_git_dirty=
 fi
 
+number_re='^[0-9]+$';
+
 # Function to assemble the Git part of our prompt.
 git_prompt ()
 {
@@ -30,9 +32,23 @@ git_prompt ()
                 if ! [ $staged -eq 0 ]; then
                         git_color="$c_git_staged";
                 else
-			update_remote=$(git config --get prompt.updateremote);
-			if ! [ -z "$update_remote" ]; then
-				git remote update -p 2>/dev/null 1>&2;
+			update_interval=$(git config --get prompt.updateinterval);
+			if ! [ -z "$update_interval" ]; then
+				if ! [[ $update_interval =~ $number_re ]]; then
+					echo "[ ${c_git_dirty}Bad value <$update_interval> in prompt.updateinterval (want a positive integer)${c_reset} ]";
+					return;
+				elif [ $update_interval -le 0 ]; then
+					echo "[ ${c_git_dirty}Bad value <$update_interval> in prompt.updateinterval (want a positive integer)${c_reset} ]";
+					return;
+				fi
+				last_up=$(git config --local --get prompt.lastupdate);
+				if [ -z "$last_up" ]; then
+					last_up=0;
+				fi
+				if [ $(expr $(date +%s) - $last_up ) -gt $update_interval ]; then
+					git remote update 2>/dev/null 1>&2;
+					git config --local prompt.lastupdate $(date +%s);
+				fi
 			fi
 			pending=$(expr $(git log --oneline @{u}.. 2>/dev/null | wc -l) + $(git log --oneline ..@{u} 2>/dev/null | wc -l));
 			if ! [ $pending -eq 0 ]; then
