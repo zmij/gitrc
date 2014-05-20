@@ -8,6 +8,7 @@ if [ "$color_prompt" = yes ]; then
         c_git_clean='\[\e[0;36m\]'
         c_git_staged='\[\e[1;35m\]'
         c_git_dirty='\[\e[1;31m\]'
+	prompt_use_colors=yes
 else
         c_reset=
         c_user=
@@ -16,6 +17,7 @@ else
         c_git_clean=
         c_git_staged=
         c_git_dirty=
+	prompt_use_colors=no
 fi
 
 number_re='^[0-9]+$';
@@ -27,39 +29,43 @@ git_prompt ()
                 return 0
         fi
         git_branch=$(git branch 2>/dev/null | sed -n '/^\*/s/^\* //p')
-        if git diff --quiet 2>/dev/null >&2; then
-		staged=$(git status --porcelain 2>/dev/null| grep "^M" | wc -l);
-                if ! [ $staged -eq 0 ]; then
-                        git_color="$c_git_staged";
-                else
-			update_interval=$(git config --get prompt.updateinterval);
-			if ! [ -z "$update_interval" ]; then
-				if ! [[ $update_interval =~ $number_re ]]; then
-					echo "[ ${c_git_dirty}Bad value <$update_interval> in prompt.updateinterval (want a positive integer)${c_reset} ]";
-					return;
-				elif [ $update_interval -le 0 ]; then
-					echo "[ ${c_git_dirty}Bad value <$update_interval> in prompt.updateinterval (want a positive integer)${c_reset} ]";
-					return;
+
+	if [ "$prompt_use_colors" = yes ]; then
+		if git diff --quiet 2>/dev/null >&2; then
+			staged=$(git status --porcelain 2>/dev/null| grep "^M" | wc -l);
+		        if ! [ $staged -eq 0 ]; then
+		                git_color="$c_git_staged";
+		        else
+				update_interval=$(git config --get prompt.updateinterval);
+				if ! [ -z "$update_interval" ]; then
+					if ! [[ $update_interval =~ $number_re ]]; then
+						echo "[ ${c_git_dirty}Bad value <$update_interval> in prompt.updateinterval (want a positive integer)${c_reset} ]";
+						return;
+					elif [ $update_interval -le 0 ]; then
+						echo "[ ${c_git_dirty}Bad value <$update_interval> in prompt.updateinterval (want a positive integer)${c_reset} ]";
+						return;
+					fi
+					last_up=$(git config --local --get prompt.lastupdate);
+					if [ -z "$last_up" ]; then
+						last_up=0;
+					fi
+					if [ $(expr $(date +%s) - $last_up ) -gt $update_interval ]; then
+						git remote update 2>/dev/null 1>&2;
+						git config --local prompt.lastupdate $(date +%s);
+					fi
 				fi
-				last_up=$(git config --local --get prompt.lastupdate);
-				if [ -z "$last_up" ]; then
-					last_up=0;
+				pending=$(expr $(git log --oneline @{u}.. 2>/dev/null | wc -l) + $(git log --oneline ..@{u} 2>/dev/null | wc -l));
+				if ! [ $pending -eq 0 ]; then
+					git_color="$c_git_pending";
+				else
+		                	git_color="$c_git_clean";
 				fi
-				if [ $(expr $(date +%s) - $last_up ) -gt $update_interval ]; then
-					git remote update 2>/dev/null 1>&2;
-					git config --local prompt.lastupdate $(date +%s);
-				fi
-			fi
-			pending=$(expr $(git log --oneline @{u}.. 2>/dev/null | wc -l) + $(git log --oneline ..@{u} 2>/dev/null | wc -l));
-			if ! [ $pending -eq 0 ]; then
-				git_color="$c_git_pending";
-			else
-                        	git_color="$c_git_clean";
-			fi
-                fi
-        else
-                git_color="$c_git_dirty";
-        fi
+		        fi
+		else
+		        git_color="$c_git_dirty";
+		fi
+	fi
+
         echo " [$git_color$git_branch${c_reset}]"
 }
 
