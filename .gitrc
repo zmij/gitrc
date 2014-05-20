@@ -4,6 +4,7 @@ if [ "$color_prompt" = yes ]; then
         c_reset='\[\e[0m\]'
         c_user='\[\e[1;33m\]'
         c_path='\[\e[1;34m\]'
+	c_git_pending='\[\e[1;36m\]'
         c_git_clean='\[\e[0;36m\]'
         c_git_staged='\[\e[1;35m\]'
         c_git_dirty='\[\e[1;31m\]'
@@ -11,6 +12,7 @@ else
         c_reset=
         c_user=
         c_path=
+	c_git_pending=
         c_git_clean=
         c_git_staged=
         c_git_dirty=
@@ -26,9 +28,14 @@ git_prompt ()
         if git diff --quiet 2>/dev/null >&2; then
 		staged=$(git status --porcelain 2>/dev/null| grep "^M" | wc -l);
                 if ! [ $staged -eq 0 ]; then
-                       git_color="$c_git_staged";
+                        git_color="$c_git_staged";
                 else
-                        git_color="$c_git_clean";
+			outgoing=$(git log --oneline @{u}.. 2>/dev/null | wc -l);
+			if ! [ $outgoing -eq 0 ]; then
+				git_color="$c_git_pending";
+			else
+                        	git_color="$c_git_clean";
+			fi
                 fi
         else
                 git_color="$c_git_dirty";
