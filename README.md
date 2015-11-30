@@ -23,10 +23,14 @@ The remote changes can be automatically updated. This can be a time consuming op
 ```Shell
 # Set remote update interval in seconds
 git config --local prompt.updateinterval 60
+# Or use a helper function
+gitrc_refresh_timeout 60
 ```
 
 To turn automatic remote update off
 
 ```shell
 git config --local --unset prompt.updateinterval
+# Or use a helper function
+gitrc_refresh_timeout off
 ```

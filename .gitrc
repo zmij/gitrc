@@ -72,6 +72,26 @@ git_prompt ()
         echo " [$git_color$git_branch${c_reset}]"
 }
 
+gitrc_refresh_timeout() {
+	timeout=$1
+	re='^[0-9]+$'
+	if [ -z "$timeout" ]
+	then
+		timeout="off"
+	fi
+	if [ "$timeout" = "off" ]
+	then
+		echo "Turn autoupdate off"
+		git config --local --unset prompt.updateinterval
+	elif [[ $timeout =~ $re ]]
+	then
+		echo "Set autoupdate to $timeout seconds"
+		git config --local prompt.updateinterval $timeout
+	else
+		echo "Invalid parameter $timeout"
+	fi
+}
+
 if [ $(whoami) = "root" ]; then
 	prompt_symbol="#"
 else
