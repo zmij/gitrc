@@ -1,0 +1,222 @@
+gitrc_git_is_clean()
+{
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    	echo "Not in git repository directory"
+        return 0
+    fi
+	if git diff --quiet 2>/dev/null >&2; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+gitrc_git_subtree_add_help()
+{
+	read -d '' help <<- EOF
+usage "git st-add <-bbranch> <-aalias> <-pprefix> <-r> REMOTE"
+EOF
+	echo "$help"
+}
+
+gitrc_git_subtree_add()
+{
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    	echo "Not in git repository directory"
+        return 1
+    fi
+
+	OPTIND=1
+	remote=""
+	remote_alias=""
+	prefix=""
+	branch="master"
+	dry_run=0
+	reg_only=0
+
+	while getopts "a:b:p:nr" opt; do
+		case "$opt" in
+		a)
+			remote_alias=$OPTARG
+			;;
+		b)
+			branch=$OPTARG
+			;;
+		p)
+			prefix=$OPTARG
+			;;
+		n)
+			dry_run=1
+			;;
+		r)
+			reg_only=1
+			;;
+		esac
+	done
+
+	shift $((OPTIND - 1))
+
+	[ "$1" = "--" ] && shift
+
+	remote=$1 && shift
+
+	if [ -z "$remote" ]; then
+		echo "Remote name is empty";
+		gitrc_git_subtree_add_help;
+		return 1;
+	fi
+
+	if [ -z "$remote_alias" ]; then
+		if [[ "$remote" =~ ^.*/([a-zA-Z0-9_-]+)\.git$ ]]; then
+			remote_alias=${BASH_REMATCH[1]};
+		else
+			echo "Failed to parse remote";
+			return 1;
+		fi
+	fi
+
+	subtree_prefix=$(git config --local --get subtrees.prefix)
+
+	if [ -z "$subtree_prefix" ]; then
+		echo "WARNING. Subtree prefix is empty. Use gitrc_git_set_default_subtree_prefix to set it";
+	fi
+
+	if [ -z "$prefix" ]; then
+		prefix=$remote_alias;
+	fi
+
+	if [ $dry_run -ne 0 ]; then
+		echo "Will store setting for remote $remote alias $remote_alias branch $branch prefix $prefix"
+		echo "Will run commands:"
+		echo "  git remote add -f $remote_alias $remote"
+		echo "  git subtree add --prefix $subtree_prefix/$prefix $remote_alias $branch --squash"
+	else
+		git config --local subtrees.$remote_alias.remote "$remote"
+		git config --local subtrees.$remote_alias.prefix "$subtree_prefix/$prefix"
+		git config --local subtrees.$remote_alias.branch "$branch"
+		if [ $reg_only -ne 0 ]; then
+			echo "Registered data for subtree alias $remote_alias"
+		else
+		    repo_dirty=1
+		    if gitrc_git_is_clean; then
+		    	repo_dirty=0
+		    fi
+
+			pushd `git rev-parse --show-toplevel` > /dev/null 2>&1
+			if [ $repo_dirty -eq 1 ]; then
+				echo "Stash uncommitted changes"
+				git stash
+			fi
+			echo "Add remote $remote with alias $remote_alias"
+			git remote add -f $remote_alias $remote
+			echo "Add subtree $subtree_prefix/$prefix"
+			if ! [ -z "$subtree_prefix" ]; then
+				mkdir -p $subtree_prefix
+			fi
+			git subtree add --prefix "$subtree_prefix/$prefix" $remote_alias $branch --squash
+			if [ $repo_dirty -eq 1 ]; then
+				echo "Unstash uncommitted changes"
+				git stash pop
+			fi
+			popd > /dev/null 2>&1
+		fi
+	fi
+}
+
+gitrc_subtree_command()
+{
+	cmd=$1
+	remote_alias=$2
+
+	if [ -z "$remote_alias" ]; then
+		echo "usage 'git st-$2 remote_alias'";
+		gitrc_list_subtrees;
+		return 1;
+	fi
+
+	prefix=$(git config --local --get subtrees.$remote_alias.prefix)
+	if [ -z "$prefix" ]; then
+		echo "$prefix was not registered. Pleas use git st-add to add or register a subtree";
+		return 1;
+	fi
+	branch=$(git config --local --get subtrees.$remote_alias.branch)
+	if [ -z "$branch" ]; then
+		branch="master"
+	fi
+
+    repo_dirty=1
+    if gitrc_git_is_clean; then
+    	repo_dirty=0
+    fi
+	pushd `git rev-parse --show-toplevel` > /dev/null 2>&1
+	if [ $repo_dirty -eq 1 ]; then
+		echo "Stash uncommitted changes"
+		git stash
+	fi
+
+	_gitrc_git_subtree_${cmd}_impl $remote_alias $prefix $branch
+
+	if [ $repo_dirty -eq 1 ]; then
+		echo "Unstash uncommitted changes"
+		git stash pop
+	fi
+	popd > /dev/null 2>&1
+}
+
+_gitrc_git_subtree_pull_impl()
+{
+	# alias prefix branch
+	git fetch $1
+	git subtree pull --prefix $2 $1 $3 --squash
+}
+
+_gitrc_git_subtree_push_impl()
+{
+	# alias prefix branch
+	git subtree push --prefix $2 $1 $3
+}
+
+gitrc_list_subtrees()
+{
+	echo "Registered subtree aliases"
+	git config -l | grep "^subtrees.*branch=" | awk -F[.=] -e '{print $2 " (" $4 ")"}'
+}
+
+gitrc_git_set_default_subtree_prefix()
+{
+	git config --local subtrees.prefix $1
+}
+
+gitrc_git_get_default_subtree_prefix()
+{
+	subtree_prefix=$(git config --local --get subtrees.prefix)
+	echo "$subtree_prefix"
+}
+
+gitrc_git_subtree_prefix()
+{
+	if [[ -z "$1" || "$1" = "--get" ]]; then
+		gitrc_git_get_default_subtree_prefix
+	else
+		gitrc_git_set_default_subtree_prefix $1
+	fi
+}
+
+gitrc_register_aliases()
+{
+	script_name=$1
+	if [ -z "$script_name" ]; then
+		echo "Usage";
+		echo "gitrc_register_aliases <path to .git_subtree_funcs script>";
+		return 1;
+	fi
+	git config --global alias.st-prefix "!bash -c '. $script_name && gitrc_git_subtree_prefix \$@' -"
+	git config --global alias.st-add "!bash -c '. $script_name && gitrc_git_subtree_add \$@' -"
+	git config --global alias.st-pull "!bash -c '. $script_name && gitrc_subtree_command pull \$@' -"
+	git config --global alias.st-push "!bash -c '. $script_name && gitrc_subtree_command push \$@' -"
+	git config --global alias.st-ls "!bash -c '. $script_name && gitrc_list_subtrees \$@' -"
+}
+
+if [ "$1" = "--install" ]; then
+	gitrc_register_aliases $0
+fi
