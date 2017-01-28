@@ -23,6 +23,10 @@ fi
 orig_user=$(id -u)
 number_re='^[0-9]+$';
 
+if [[ -z $prompt_host ]]; then
+	prompt_host="\h"
+fi
+
 # Function to assemble the Git part of our prompt.
 git_prompt ()
 {
@@ -99,8 +103,8 @@ else
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PROMPT_COMMAND='PS1="${debian_chroot:+($debian_chroot)}${c_user}\u${c_reset}@${c_user}\h${c_reset}:${c_path}\w${c_reset}$(git_prompt)${prompt_symbol} "'
+    PROMPT_COMMAND='PS1="${debian_chroot:+($debian_chroot)}${c_user}\u${c_reset}@${c_user}${prompt_host}${c_reset}:${c_path}\w${c_reset}$(git_prompt)${prompt_symbol} "'
 else
-    PROMPT_COMMAND='PS1="${debian_chroot:+($debian_chroot)}\u@\h:\w$(git_prompt)${prompt_symbol} "'
+    PROMPT_COMMAND='PS1="${debian_chroot:+($debian_chroot)}\u@${prompt_host}:\w$(git_prompt)${prompt_symbol} "'
 fi
 
